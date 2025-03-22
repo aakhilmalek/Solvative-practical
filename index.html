@@ -21,16 +21,197 @@
     <meta property="twitter:title" content="" />
     <meta property="twitter:description" content="" />
     <meta property="twitter:image" content="" />
-
     <meta name="theme-color" content="#ffffff" />
+    <title>Practical Solvative</title>
 
-    <title>Home | Practical Solvative</title>
-
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="assets/main.css" />
 
 </head>
 
 <body>
+    <main class="middle-section">
+        <section class="section home-section" id="home">
+            <div class="container">
+                <div class="d-inline-block">
+                    <div class="search-container">
+                        <input type="text" id="city-search" class="search-box" placeholder="Search for cities...">
+                        <span class="shortcut-box">Ctrl + K</span>
+                    </div>
+                    <small class="serach-note">After typing, press Enter to see the results.</small>
+                </div>
 
+                <div class="d-inline-block">
+                    <div class="search-container">
+                        <input type="text" id="city-search" class="search-box" placeholder="Search for cities..."
+                            disabled>
+                        <span class="shortcut-box">Ctrl + K</span>
+                    </div>
+                    <small class="serach-note">Disabled Search</small>
+                </div>
+                <hr />
+            </div>
+
+            <div class="container">
+                <div class="spinner" id="spinner" style="display: none;">Loading...</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Place Name</th>
+                            <th>Country</th>
+                            <th>Flag</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cityTableBody"></tbody>
+                </table>
+
+                <div id="pagination" class="pagination" style="display: none; text-align: center; margin-top: 10px;">
+                    <button id="prevPage" disabled>« Prev</button>
+                    <span id="pageInfo"></span>
+                    <button id="nextPage">Next »</button>
+                </div>
+            </div>
+
+
+        </section>
+    </main>
 </body>
+<script>
+    document.addEventListener("keydown", function (event) {
+        if ((event.ctrlKey || event.metaKey) && event.key === "/") {
+            event.preventDefault();
+            document.getElementById("city-search").focus();
+        }
+    });
+
+    document.addEventListener("keydown", function (event) {
+        if ((event.ctrlKey || event.metaKey) && event.key === "k") {
+            event.preventDefault();
+            document.getElementById("city-search").focus();
+        }
+    });
+
+    document.getElementById("city-search").addEventListener("keypress", function (event) {
+        if (event.key === "Enter") {
+            fetchCities(this.value.trim(), 1);
+        }
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        fetchCities(""); // Load 5 default cities
+    });
+    let currentPage = 1;
+    let totalPages = 1;
+    let lastQuery = "";
+    const resultsPerPage = 5;
+
+    function fetchCities(query = "", page = 1) {
+        document.getElementById("spinner").style.display = "block";
+        document.getElementById("cityTableBody").innerHTML = "";
+        document.getElementById("pagination").style.display = "none";
+
+        lastQuery = query;
+        let offset = (page - 1) * resultsPerPage;
+        let apiUrl = `https://wft-geo-db.p.rapidapi.com/v1/geo/cities?namePrefix=${query}&offset=${offset}&limit=${resultsPerPage}`;
+
+        fetch(apiUrl, {
+            method: "GET",
+            headers: {
+                "x-rapidapi-key": "40a5391454msh15b3dec1c7db154p186443jsn2fa7f42857c6",
+                "x-rapidapi-host": "wft-geo-db.p.rapidapi.com"
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("spinner").style.display = "none";
+                let cities = data.data;
+                let tableBody = document.getElementById("cityTableBody");
+
+                if (!cities || cities.length === 0) {
+                    tableBody.innerHTML = "<tr><td colspan='5'>No results found.</td></tr>";
+                    document.getElementById("pagination").style.display = "none";
+                    return;
+                }
+
+                tableBody.innerHTML = "";
+                cities.forEach((city, index) => {
+                    let row = document.createElement("tr");
+                    row.innerHTML = `
+                <td>${offset + index + 1}</td>
+                <td>${city.name}</td>
+                <td>${city.country}</td>
+                <td><img src="https://flagsapi.com/${city.countryCode}/flat/32.png" alt="${city.country} flag"></td>
+                <td><button class="button" onclick="toggleDetails(this, ${index}, '${city.wikiDataId}', '${city.type}', '${city.region}', ${city.latitude}, ${city.longitude}, ${city.population})">View More</button></td>
+            `;
+                    tableBody.appendChild(row);
+                });
+
+                totalPages = Math.ceil(data.metadata.totalCount / resultsPerPage);
+                updatePagination();
+            })
+            .catch(error => {
+                document.getElementById("spinner").style.display = "none";
+                document.getElementById("cityTableBody").innerHTML = "<tr><td colspan='5'>Error fetching data.</td></tr>";
+                console.error("Error:", error);
+            });
+    }
+
+    function toggleDetails(button, index, wikiDataId, type, region, latitude, longitude, population) {
+        let existingRow = document.getElementById(`details-${index}`);
+
+        if (existingRow) {
+            existingRow.remove();
+            button.innerText = "View More";
+        } else {
+            let detailsRow = document.createElement("tr");
+            detailsRow.id = `details-${index}`;
+            detailsRow.innerHTML = `
+            <td colspan="5">
+                <strong>WikiData ID:</strong> ${wikiDataId} |
+                <strong>Type:</strong> ${type} |
+                <strong>Region:</strong> ${region} |
+                <strong>Latitude:</strong> ${latitude} |
+                <strong>Longitude:</strong> ${longitude} |
+                <strong>Population:</strong> ${population}
+            </td>
+        `;
+            button.closest("tr").after(detailsRow);
+            button.innerText = "View Less";
+        }
+    }
+
+    function updatePagination() {
+        const pagination = document.getElementById("pagination");
+        if (totalPages <= 1) {
+            pagination.style.display = "none";
+            return;
+        }
+
+        document.getElementById("pageInfo").textContent = `Page ${currentPage} of ${totalPages}`;
+        document.getElementById("prevPage").disabled = currentPage === 1;
+        document.getElementById("nextPage").disabled = currentPage === totalPages;
+        pagination.style.display = "block";
+    }
+
+    document.getElementById("prevPage").addEventListener("click", () => {
+        if (currentPage > 1) {
+            currentPage--;
+            fetchCities(lastQuery, currentPage);
+        }
+    });
+
+    document.getElementById("nextPage").addEventListener("click", () => {
+        if (currentPage < totalPages) {
+            currentPage++;
+            fetchCities(lastQuery, currentPage);
+        }
+    });
+</script>
 
 </html>

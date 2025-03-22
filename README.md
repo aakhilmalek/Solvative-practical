@@ -2,9 +2,4 @@
 
 $ git clone https://github.com/aakhilmalek/Solvative-practical.git
 
-First, run the development server:
-
-```bash
-npm run dev
-
-```
+Created using plain HTML, CSS, and JavaScript with no dependencies required.
